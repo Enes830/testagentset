@@ -31,11 +31,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state
-if "messages" not in st.session_state:
-    st.session_state["messages"] = []
-
-if "active_tab" not in st.session_state:
-    st.session_state["active_tab"] = "chat"
+for key, default in [("messages", []), ("active_tab", "chat")]:
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 
 def is_configured():
@@ -64,7 +62,32 @@ def get_rag_system():
         agentset_api_token=st.session_state.get("agentset_api_key"),
         openai_api_key=st.session_state.get("openai_api_key"),
         system_prompt=config.SYSTEM_PROMPT,
+        model=st.session_state.get("openai_model", config.OPENAI_MODEL),
     )
+
+
+def metadata_popover(key_prefix, max_fields=5):
+    """Render metadata input fields in a popover and return the metadata dict."""
+    with st.popover("Add metadata"):
+        num = st.number_input("Number of fields", 0, max_fields, 0, key=f"{key_prefix}_meta_count")
+        metadata = {}
+        for i in range(int(num)):
+            c1, c2 = st.columns(2)
+            with c1:
+                k = st.text_input(f"Key {i + 1}", key=f"{key_prefix}_k_{i}")
+            with c2:
+                v = st.text_input(f"Value {i + 1}", key=f"{key_prefix}_v_{i}")
+            if k and v:
+                metadata[k] = v
+    return metadata or None
+
+
+def show_ingest_result(result):
+    """Display success or error message from an ingestion result."""
+    if result["success"]:
+        st.success(f"Ingestion started. Job ID: `{result['job_id']}`")
+    else:
+        st.error(result["message"])
 
 
 # Sidebar - Configuration
@@ -72,38 +95,31 @@ with st.sidebar:
     st.title("RAG Playground")
 
     with st.expander("⚙️ API Configuration", expanded=not is_configured()):
-        openai_key = st.text_input(
-            "OpenAI API Key",
-            type="password",
-            value=config.OPENAI_API_KEY or "",
-            placeholder="sk-...",
-            help="Required for generating responses",
-        )
-        if openai_key:
-            st.session_state["openai_api_key"] = openai_key
-
-        agentset_key = st.text_input(
-            "Agentset API Key",
-            type="password",
-            value=config.AGENTSET_API_KEY or "",
-            placeholder="Your Agentset API key",
-            help="Required for document retrieval",
-        )
-        if agentset_key:
-            st.session_state["agentset_api_key"] = agentset_key
-
-        namespace = st.text_input(
-            "Namespace ID",
-            value=config.AGENTSET_NAMESPACE_ID or "",
-            placeholder="ns_...",
-            help="Your Agentset namespace identifier",
-        )
-        if namespace:
-            st.session_state["agentset_namespace"] = namespace
+        api_fields = [
+            ("OpenAI API Key", "openai_api_key", config.OPENAI_API_KEY, "sk-...", "Required for generating responses", True),
+            ("Agentset API Key", "agentset_api_key", config.AGENTSET_API_KEY, "Your Agentset API key", "Required for document retrieval", True),
+            ("Namespace ID", "agentset_namespace", config.AGENTSET_NAMESPACE_ID, "ns_...", "Your Agentset namespace identifier", False),
+        ]
+        for label, key, default, placeholder, help_text, is_password in api_fields:
+            value = st.text_input(label, type="password" if is_password else "default",
+                                  value=default or "", placeholder=placeholder, help=help_text)
+            if value:
+                st.session_state[key] = value
 
     st.markdown('<p class="sidebar-section">RAG Settings</p>', unsafe_allow_html=True)
 
     with st.expander("Advanced Settings"):
+        # OpenAI Model Selection
+        selected_model = st.selectbox(
+            "OpenAI Model",
+            options=config.AVAILABLE_MODELS,
+            index=config.AVAILABLE_MODELS.index(st.session_state.get("openai_model", config.OPENAI_MODEL)),
+            help="Select the OpenAI model for generating responses",
+        )
+        st.session_state["openai_model"] = selected_model
+
+        st.divider()
+
         top_k = st.slider(
             "Results to retrieve",
             min_value=1,
@@ -220,147 +236,62 @@ with tab_ingest:
 
         if ingest_type == "Text":
             st.subheader("Ingest Text Content")
-
             text_content = st.text_area(
-                "Content",
-                height=150,
+                "Content", height=150,
                 placeholder="Paste or type the text content you want to ingest...",
             )
-
             col1, col2 = st.columns(2)
             with col1:
-                file_name = st.text_input(
-                    "File name (optional)", placeholder="document.txt"
-                )
+                file_name = st.text_input("File name (optional)", placeholder="document.txt")
             with col2:
-                with st.popover("Add metadata"):
-                    meta_key = st.text_input("Key", key="text_meta_key")
-                    meta_value = st.text_input("Value", key="text_meta_value")
+                text_metadata = metadata_popover("text", max_fields=10)
 
             if st.button("Ingest Text", type="primary", disabled=not text_content):
                 with st.spinner("Ingesting..."):
-                    ingester = get_ingester()
-                    metadata = (
-                        {meta_key: meta_value} if meta_key and meta_value else None
+                    result = get_ingester().ingest_text(
+                        text_content, file_name or None, text_metadata
                     )
-                    result = ingester.ingest_text(
-                        text_content, file_name if file_name else None, metadata
-                    )
-
-                if result["success"]:
-                    st.success(f"Ingestion started. Job ID: `{result['job_id']}`")
-                else:
-                    st.error(result["message"])
+                show_ingest_result(result)
 
         elif ingest_type == "URL":
             st.subheader("Ingest File from URL")
-
             document_name = st.text_input("Document name", placeholder="Research Paper")
-            file_url = st.text_input(
-                "File URL", placeholder="https://example.com/document.pdf"
-            )
+            file_url = st.text_input("File URL", placeholder="https://example.com/document.pdf")
+            url_metadata = metadata_popover("url")
 
-            with st.popover("Add metadata"):
-                num_meta = st.number_input(
-                    "Number of fields", 0, 5, 0, key="url_meta_count"
-                )
-                url_metadata = {}
-                for i in range(int(num_meta)):
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        k = st.text_input(f"Key {i + 1}", key=f"url_k_{i}")
-                    with c2:
-                        v = st.text_input(f"Value {i + 1}", key=f"url_v_{i}")
-                    if k and v:
-                        url_metadata[k] = v
-
-            can_submit = document_name and file_url
-            if st.button("Ingest from URL", type="primary", disabled=not can_submit):
+            if st.button("Ingest from URL", type="primary", disabled=not (document_name and file_url)):
                 with st.spinner("Ingesting..."):
-                    ingester = get_ingester()
-                    result = ingester.ingest_file_from_url(
-                        document_name, file_url, url_metadata if url_metadata else None
-                    )
-
-                if result["success"]:
-                    st.success(f"Ingestion started. Job ID: `{result['job_id']}`")
-                else:
-                    st.error(result["message"])
+                    result = get_ingester().ingest_file_from_url(document_name, file_url, url_metadata)
+                show_ingest_result(result)
 
         elif ingest_type == "Upload":
             st.subheader("Upload Local File")
-
-            uploaded_file = st.file_uploader(
-                "Choose a file", help="Supported formats: PDF, TXT, DOCX, and more"
-            )
+            uploaded_file = st.file_uploader("Choose a file", help="Supported formats: PDF, TXT, DOCX, and more")
 
             if uploaded_file:
-                # Show file info
-                st.caption(
-                    f"Selected: {uploaded_file.name} ({len(uploaded_file.getbuffer()):,} bytes)"
-                )
-
-                custom_name = st.text_input(
-                    "Custom file name (optional)", placeholder=uploaded_file.name
-                )
-
-                with st.popover("Add metadata"):
-                    num_meta = st.number_input(
-                        "Number of fields", 0, 5, 0, key="upload_meta_count"
-                    )
-                    upload_metadata = {}
-                    for i in range(int(num_meta)):
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            k = st.text_input(f"Key {i + 1}", key=f"upload_k_{i}")
-                        with c2:
-                            v = st.text_input(f"Value {i + 1}", key=f"upload_v_{i}")
-                        if k and v:
-                            upload_metadata[k] = v
+                st.caption(f"Selected: {uploaded_file.name} ({len(uploaded_file.getbuffer()):,} bytes)")
+                custom_name = st.text_input("Custom file name (optional)", placeholder=uploaded_file.name)
+                upload_metadata = metadata_popover("upload")
 
                 if st.button("Upload and Ingest", type="primary"):
-                    import tempfile
-                    import os
-
+                    import tempfile, os
                     with st.spinner("Uploading and ingesting..."):
-                        # Save to temp file
                         with tempfile.NamedTemporaryFile(delete=False) as tmp:
                             tmp.write(uploaded_file.getbuffer())
                             tmp_path = tmp.name
-
                         try:
-                            final_name = (
-                                custom_name if custom_name else uploaded_file.name
+                            result = get_ingester().ingest_local_file(
+                                tmp_path, custom_name or uploaded_file.name, upload_metadata
                             )
-                            ingester = get_ingester()
-                            result = ingester.ingest_local_file(
-                                tmp_path,
-                                final_name,
-                                upload_metadata if upload_metadata else None,
-                            )
-
-                            if result["success"]:
-                                st.success(
-                                    f"Ingestion started. Job ID: `{result['job_id']}`"
-                                )
-                            else:
-                                st.error(result["message"])
+                            show_ingest_result(result)
                         finally:
                             os.unlink(tmp_path)
 
         elif ingest_type == "Check Status":
             st.subheader("Check Job Status")
-
-            job_id = st.text_input(
-                "Job ID", placeholder="Enter the job ID from a previous ingestion"
-            )
+            job_id = st.text_input("Job ID", placeholder="Enter the job ID from a previous ingestion")
 
             if st.button("Check Status", type="primary", disabled=not job_id):
                 with st.spinner("Checking..."):
-                    ingester = get_ingester()
-                    result = ingester.get_job_status(job_id)
-
-                if result["success"]:
-                    st.info(result["message"])
-                else:
-                    st.error(result["message"])
+                    result = get_ingester().get_job_status(job_id)
+                (st.info if result["success"] else st.error)(result["message"])

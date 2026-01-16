@@ -16,7 +16,7 @@ class RAGSystem:
     Retrieves relevant documents and generates responses using OpenAI.
     """
 
-    def __init__(self, agentset_namespace_id: str, agentset_api_token: str, openai_api_key: str, system_prompt: str = None):
+    def __init__(self, agentset_namespace_id: str, agentset_api_token: str, openai_api_key: str, system_prompt: str = None, model: str = "gpt-4o-mini"):
         """
         Initialize the RAG system with API credentials.
 
@@ -25,6 +25,7 @@ class RAGSystem:
             agentset_api_token: Agentset API token
             openai_api_key: OpenAI API key
             system_prompt: Custom system prompt (optional)
+            model: OpenAI model to use for generation (default: gpt-4o-mini)
         """
         logger.info("Initializing RAG System")
         
@@ -32,6 +33,7 @@ class RAGSystem:
         self.agentset_api_token = agentset_api_token
         self.openai_api_key = openai_api_key
         self.system_prompt = system_prompt
+        self.model = model
 
         # Initialize OpenAI client
         self.openai_client = OpenAIClient(api_key=openai_api_key)
@@ -113,8 +115,9 @@ class RAGSystem:
             {"role": "user", "content": query},
         ]
 
+        logger.info(f"Using model: {self.model}")
         response = self.openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=self.model,
             messages=messages,
         )
 
