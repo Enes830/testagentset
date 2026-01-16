@@ -4,7 +4,10 @@ Simple class to handle document retrieval and AI-powered responses
 """
 
 import requests
+import logging
 from openai import OpenAI as OpenAIClient
+
+logger = logging.getLogger(__name__)
 
 
 class RAGSystem:
@@ -23,6 +26,8 @@ class RAGSystem:
             openai_api_key: OpenAI API key
             system_prompt: Custom system prompt (optional)
         """
+        logger.info("Initializing RAG System")
+        
         self.agentset_namespace_id = agentset_namespace_id
         self.agentset_api_token = agentset_api_token
         self.openai_api_key = openai_api_key
@@ -30,6 +35,7 @@ class RAGSystem:
 
         # Initialize OpenAI client
         self.openai_client = OpenAIClient(api_key=openai_api_key)
+        logger.debug("OpenAI client initialized")
 
         # Agentset API configuration
         self.agentset_base_url = "https://api.agentset.ai/v1"
@@ -37,6 +43,7 @@ class RAGSystem:
             "Authorization": f"Bearer {agentset_api_token}",
             "Content-Type": "application/json",
         }
+        logger.debug("Agentset API configured")
 
     def retrieve(
         self,
@@ -59,6 +66,8 @@ class RAGSystem:
         Returns:
             Extracted context from retrieved documents
         """
+        logger.info(f"Retrieving documents for query: '{query}' (top_k={top_k}, min_score={min_score})")
+        
         search_url = f"{self.agentset_base_url}/namespace/{self.agentset_namespace_id}/search"
 
         payload = {
@@ -78,9 +87,11 @@ class RAGSystem:
         response = requests.post(search_url, headers=self.agentset_headers, json=payload)
 
         if response.status_code != 200:
+            logger.error(f"Agentset API error: {response.status_code} - {response.text}")
             raise Exception(f"Agentset API error: {response.status_code} - {response.text}")
 
         results = response.json()
+        logger.debug(f"Agentset API returned {len(results.get('data', []))} results")
 
         # Extract context from search results
         context = ""
@@ -89,6 +100,7 @@ class RAGSystem:
                 if "text" in item:
                     context += item["text"] + "\n"
 
+        logger.info(f"Extracted context of {len(context)} characters from {len(results.get('data', []))} documents")
         return context.strip()
 
     def generate_response(self, query: str, context: str, system_prompt: str = None) -> str:
@@ -103,6 +115,8 @@ class RAGSystem:
         Returns:
             Generated response from OpenAI
         """
+        logger.info(f"Generating response for query: '{query}'")
+        
         if system_prompt is None:
             system_prompt = self.system_prompt
         
@@ -122,7 +136,9 @@ class RAGSystem:
             messages=messages,
         )
 
-        return response.choices[0].message.content
+        result = response.choices[0].message.content
+        logger.debug(f"Generated response of {len(result)} characters")
+        return result
 
     def query(self, query: str, top_k: int = 10, min_score: float = 0.5) -> dict:
         """
@@ -136,9 +152,13 @@ class RAGSystem:
         Returns:
             Dictionary with 'context' and 'response' keys
         """
+        logger.info(f"Starting RAG query pipeline for: '{query}'")
+        
         context = self.retrieve(query, top_k=top_k, min_score=min_score)
         response = self.generate_response(query, context)
 
+        logger.info(f"RAG query completed successfully")
+        
         return {
             "query": query,
             "context": context,
