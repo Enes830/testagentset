@@ -3,8 +3,8 @@ RAG System - Retrieval Augmented Generation using Agentset and OpenAI
 Simple class to handle document retrieval and AI-powered responses
 """
 
-import requests
 import logging
+from agentset import Agentset
 from openai import OpenAI as OpenAIClient
 
 logger = logging.getLogger(__name__)
@@ -37,13 +37,12 @@ class RAGSystem:
         self.openai_client = OpenAIClient(api_key=openai_api_key)
         logger.debug("OpenAI client initialized")
 
-        # Agentset API configuration
-        self.agentset_base_url = "https://api.agentset.ai/v1"
-        self.agentset_headers = {
-            "Authorization": f"Bearer {agentset_api_token}",
-            "Content-Type": "application/json",
-        }
-        logger.debug("Agentset API configured")
+        # Initialize Agentset client using Python SDK
+        self.agentset_client = Agentset(
+            namespace_id=agentset_namespace_id,
+            token=agentset_api_token,
+        )
+        logger.debug("Agentset client initialized")
 
     def retrieve(
         self,
@@ -68,39 +67,22 @@ class RAGSystem:
         """
         logger.info(f"Retrieving documents for query: '{query}' (top_k={top_k}, min_score={min_score})")
         
-        search_url = f"{self.agentset_base_url}/namespace/{self.agentset_namespace_id}/search"
-
-        payload = {
-            "query": query,
-            "topK": top_k,
-            "rerank": rerank,
-            "rerankLimit": top_k,
-            "rerankModel": rerank_model,
-            "filter": {},
-            "minScore": min_score,
-            "includeRelationships": False,
-            "includeMetadata": True,
-            "keywordFilter": "",
-            "mode": "semantic",
-        }
-
-        response = requests.post(search_url, headers=self.agentset_headers, json=payload)
-
-        if response.status_code != 200:
-            logger.error(f"Agentset API error: {response.status_code} - {response.text}")
-            raise Exception(f"Agentset API error: {response.status_code} - {response.text}")
-
-        results = response.json()
-        logger.debug(f"Agentset API returned {len(results.get('data', []))} results")
+        # Use Agentset Python SDK for search
+        results = self.agentset_client.search.execute(
+            query=query,
+            top_k=top_k,
+            min_score=min_score,
+            rerank=rerank,
+            rerank_limit=top_k,
+            rerank_model=rerank_model,
+        )
+        
+        logger.debug(f"Agentset SDK returned {len(results.data)} results")
 
         # Extract context from search results
-        context = ""
-        if "data" in results:
-            for item in results["data"]:
-                if "text" in item:
-                    context += item["text"] + "\n"
+        context = "".join([r.text for r in results.data if r.text])
 
-        logger.info(f"Extracted context of {len(context)} characters from {len(results.get('data', []))} documents")
+        logger.info(f"Extracted context of {len(context)} characters from {len(results.data)} documents")
         return context.strip()
 
     def generate_response(self, query: str, context: str, system_prompt: str = None) -> str:

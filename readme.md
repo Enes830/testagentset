@@ -17,7 +17,7 @@ A Streamlit app for document ingestion and RAG-based Q&A using Agentset and Open
 
 3. Run the app:
    ```
-   streamlit run streamlitapp.py
+   streamlit run app.py
    ```
 
 ## Configuration
