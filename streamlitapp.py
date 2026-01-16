@@ -10,66 +10,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Professional styling - clean chat avatars without emojis
-st.markdown(
-    """
-<style>
-    /* Replace default chat avatars with simple initials */
-    .stChatMessage [data-testid="chatAvatarIcon-user"] {
-        display: none;
-    }
-    .stChatMessage [data-testid="chatAvatarIcon-assistant"] {
-        display: none;
-    }
-    
-    /* Style for user messages */
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageAvatarContainer"] {
-        background: #e5e5e5;
-        border-radius: 50%;
-        width: 2rem;
-        height: 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) [data-testid="stChatMessageAvatarContainer"]::after {
-        content: "U";
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: #666;
-    }
-    
-    /* Style for assistant messages */
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageAvatarContainer"] {
-        background: #333;
-        border-radius: 50%;
-        width: 2rem;
-        height: 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) [data-testid="stChatMessageAvatarContainer"]::after {
-        content: "A";
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: #fff;
-    }
-    
-    /* Sidebar section headers */
-    .sidebar-section { 
-        font-size: 0.75rem; 
-        font-weight: 600; 
-        color: #666; 
-        text-transform: uppercase; 
-        letter-spacing: 0.5px;
-        margin-top: 1rem;
-        margin-bottom: 0.5rem;
-    }
-</style>
-""",
-    unsafe_allow_html=True,
-)
 
 # Initialize session state
 if "messages" not in st.session_state:
@@ -112,38 +52,35 @@ def get_rag_system():
 with st.sidebar:
     st.title("RAG Playground")
 
-    st.markdown(
-        '<p class="sidebar-section">API Configuration</p>', unsafe_allow_html=True
-    )
+    with st.expander("⚙️ API Configuration", expanded=not is_configured()):
+        openai_key = st.text_input(
+            "OpenAI API Key",
+            type="password",
+            value=config.OPENAI_API_KEY or "",
+            placeholder="sk-...",
+            help="Required for generating responses",
+        )
+        if openai_key:
+            st.session_state["openai_api_key"] = openai_key
 
-    openai_key = st.text_input(
-        "OpenAI API Key",
-        type="password",
-        value=config.OPENAI_API_KEY or "",
-        placeholder="sk-...",
-        help="Required for generating responses",
-    )
-    if openai_key:
-        st.session_state["openai_api_key"] = openai_key
+        agentset_key = st.text_input(
+            "Agentset API Key",
+            type="password",
+            value=config.AGENTSET_API_KEY or "",
+            placeholder="Your Agentset API key",
+            help="Required for document retrieval",
+        )
+        if agentset_key:
+            st.session_state["agentset_api_key"] = agentset_key
 
-    agentset_key = st.text_input(
-        "Agentset API Key",
-        type="password",
-        value=config.AGENTSET_API_KEY or "",
-        placeholder="Your Agentset API key",
-        help="Required for document retrieval",
-    )
-    if agentset_key:
-        st.session_state["agentset_api_key"] = agentset_key
-
-    namespace = st.text_input(
-        "Namespace ID",
-        value=config.AGENTSET_NAMESPACE_ID or "",
-        placeholder="ns_...",
-        help="Your Agentset namespace identifier",
-    )
-    if namespace:
-        st.session_state["agentset_namespace"] = namespace
+        namespace = st.text_input(
+            "Namespace ID",
+            value=config.AGENTSET_NAMESPACE_ID or "",
+            placeholder="ns_...",
+            help="Your Agentset namespace identifier",
+        )
+        if namespace:
+            st.session_state["agentset_namespace"] = namespace
 
     st.markdown('<p class="sidebar-section">RAG Settings</p>', unsafe_allow_html=True)
 
@@ -183,54 +120,62 @@ tab_chat, tab_ingest = st.tabs(["Chat", "Ingest Documents"])
 
 # Chat Tab
 with tab_chat:
-    # Show welcome message if no messages yet
-    if not st.session_state["messages"]:
-        st.markdown("""
-        ### Welcome to RAG Playground
-        
-        Ask questions and get answers based on your ingested documents.
-        
-        **Quick start:**
-        1. Configure your API keys in the sidebar
-        2. Ingest documents in the "Ingest Documents" tab
-        3. Start asking questions below
-        """)
+    # Create a container for chat messages (keeps chat_input at bottom)
+    chat_container = st.container()
+    
+    # Chat input - placed here so it stays at the bottom
+    prompt = st.chat_input("Ask a question about your documents...")
+    
+    with chat_container:
+        # Show welcome message if no messages yet
+        if not st.session_state["messages"]:
+            st.markdown("""
+            ### Welcome to RAG Playground
+            
+            Ask questions and get answers based on your ingested documents.
+            
+            **Quick start:**
+            1. Configure your API keys in the sidebar
+            2. Ingest documents in the "Ingest Documents" tab
+            3. Start asking questions below
+            """)
 
-    # Display chat messages
-    for msg in st.session_state["messages"]:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
-            if msg.get("context"):
-                with st.expander("View retrieved context"):
-                    st.text(msg["context"])
+        # Display chat messages
+        for msg in st.session_state["messages"]:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
+                if msg.get("context"):
+                    with st.expander("View retrieved context"):
+                        st.text(msg["context"])
 
-    # Chat input
-    if prompt := st.chat_input("Ask a question about your documents..."):
+    # Process new input
+    if prompt:
         if not is_configured():
             st.error("Please configure your API keys in the sidebar to continue.")
             st.stop()
 
         # Add user message
         st.session_state["messages"].append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.write(prompt)
+        with chat_container:
+            with st.chat_message("user"):
+                st.write(prompt)
 
-        # Generate response
-        with st.chat_message("assistant"):
-            with st.spinner("Searching and generating response..."):
-                rag = get_rag_system()
-                result = rag.query(
-                    prompt,
-                    top_k=st.session_state.get("top_k", config.TOP_K),
-                    min_score=st.session_state.get("min_score", config.MIN_SCORE),
-                )
-                response = result["response"]
-                context = result.get("context", "")
+            # Generate response
+            with st.chat_message("assistant"):
+                with st.spinner("Searching and generating response..."):
+                    rag = get_rag_system()
+                    result = rag.query(
+                        prompt,
+                        top_k=st.session_state.get("top_k", config.TOP_K),
+                        min_score=st.session_state.get("min_score", config.MIN_SCORE),
+                    )
+                    response = result["response"]
+                    context = result.get("context", "")
 
-            st.write(response)
-            if context:
-                with st.expander("View retrieved context"):
-                    st.text(context)
+                st.write(response)
+                if context:
+                    with st.expander("View retrieved context"):
+                        st.text(context)
 
         # Save assistant message with context
         st.session_state["messages"].append(
