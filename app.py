@@ -10,6 +10,25 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Hide chat avatars
+st.markdown("""
+<style>
+/* Hide avatar container */
+.stChatMessage > div:first-child {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    visibility: hidden !important;
+}
+[data-testid="stChatMessageAvatarContainer"] {
+    display: none !important;
+    width: 0 !important;
+}
+.stChatMessage svg {
+    display: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize session state
 if "messages" not in st.session_state:
