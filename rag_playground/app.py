@@ -97,7 +97,7 @@ with st.sidebar:
     with st.expander("API Configuration", expanded=not is_configured()):
         api_fields = [
             ("OpenAI API Key", "openai_api_key", config.OPENAI_API_KEY, "sk-...", "Required for generating responses", True),
-            ("Agentset API Key", "agentset_api_key", config.AGENTSET_API_KEY, "Your Agentset API key", "Required for document retrieval", True),
+            ("Agentset API Key", "agentset_api_key", config.AGENTSET_API_KEY, "agentset_...", "Required for document retrieval", True),
             ("Namespace ID", "agentset_namespace", config.AGENTSET_NAMESPACE_ID, "ns_...", "Your Agentset namespace identifier", False),
             ("base URL", "agentset_base_url", "https://api.agentset.ai", "https://api.agentset.com", "Custom Agentset API base URL", False),
         ]
