@@ -1,4 +1,4 @@
-# 🔍 Agentset Streamlit Demo
+# Agentset Streamlit Demo
 
 A beautiful Streamlit application for document ingestion and intelligent Q&A powered by [Agentset](https://agentset.ai) and OpenAI.
 
@@ -12,7 +12,7 @@ A beautiful Streamlit application for document ingestion and intelligent Q&A pow
 - **Configurable** - Adjust retrieval parameters like top-k results and minimum relevance score
 - **Model Selection** - Choose from multiple OpenAI models
 
-## 📸 Screenshots
+## Screenshots
 
 <details>
 <summary><strong>Chat Interface</strong></summary>
@@ -41,7 +41,7 @@ Configure API keys and fine-tune retrieval settings.
 
 </details>
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 pip install agentset-streamlit-demo
@@ -57,13 +57,13 @@ pip install -e .
 agentset-streamlit-demo
 ```
 
-## 📋 Requirements
+## Requirements
 
 - Python 3.8+
 - [Agentset](https://agentset.ai) API key and namespace ID
 - OpenAI API key
 
-## 🔧 Configuration
+## Configuration
 
 1. **Get your Agentset credentials** at [agentset.ai](https://agentset.ai)
 2. **Get your OpenAI API key** at [platform.openai.com](https://platform.openai.com)
@@ -71,7 +71,7 @@ agentset-streamlit-demo
 
 
 
-## 🔗 Links
+## Links
 
 - [Agentset Documentation](https://docs.agentset.ai)
 - [OpenAI API](https://platform.openai.com/docs)
