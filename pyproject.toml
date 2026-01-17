@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-playground"
+version = "0.1.0"
+description = "A Streamlit app for document ingestion and Q&A using Agentset and OpenAI"
+readme = "readme.md"
+requires-python = ">=3.9"
+dependencies = [
+    "streamlit>=1.28.0",
+    "streamlit-ace>=0.1.1",
+    "openai>=1.0.0",
+    "requests>=2.28.0",
+    "python-dotenv>=1.0.0",
+    "agentset>=0.6.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/Enes830/testagentset"
+Repository = "https://github.com/Enes830/testagentset"
+
+[project.scripts]
+rag-playground = "rag_playground.cli:main"

@@ -1,25 +1,24 @@
 # RAG Playground
 
-A Streamlit app for document ingestion and RAG-based Q&A using Agentset and OpenAI.
+A Streamlit app for document ingestion and Q&A using Agentset and OpenAI.
 
-## Setup
+## Quick Start
 
-1. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+```bash
+pip install rag-playground
+rag-playground
+```
 
-2. Configure environment variables:
-   ```
-   cp .env.example .env
-   ```
-   Edit `.env` with your API keys.
+Or run from source:
 
-3. Run the app:
-   ```
-   streamlit run app.py
-   ```
+```bash
+git clone https://github.com/Enes830/testagentset.git
+cd testagentset
+pip install -e .
+rag-playground
+```
 
-## Configuration
+## Requirements
 
-Set your Namespace ID in the sidebar or update `config.py`.
+- [Agentset](https://agentset.ai) API key and namespace ID
+- OpenAI API key

@@ -1,7 +1,7 @@
 import streamlit as st
-from rag_system import RAGSystem
-from document_ingester import DocumentIngester
-import config
+from rag_playground.rag_system import RAGSystem
+from rag_playground.document_ingester import DocumentIngester
+from rag_playground import config
 
 # Page configuration
 st.set_page_config(
