@@ -1,4 +1,4 @@
-"""CLI entry point for RAG Playground"""
+"""CLI entry point for Agentset Streamlit Demo"""
 import subprocess
 import sys
 from pathlib import Path

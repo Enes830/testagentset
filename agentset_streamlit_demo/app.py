@@ -1,11 +1,11 @@
 import streamlit as st
-from rag_playground.rag_system import RAGSystem
-from rag_playground.document_ingester import DocumentIngester
-from rag_playground import config
+from agentset_streamlit_demo.rag_system import RAGSystem
+from agentset_streamlit_demo.document_ingester import DocumentIngester
+from agentset_streamlit_demo import config
 
 # Page configuration
 st.set_page_config(
-    page_title="RAG Playground",
+    page_title="Agentset Streamlit Demo",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -92,7 +92,7 @@ def show_ingest_result(result):
 
 # Sidebar - Configuration
 with st.sidebar:
-    st.title("RAG Playground")
+    st.title("Agentset Streamlit Demo")
 
     with st.expander("API Configuration", expanded=not is_configured()):
         api_fields = [
@@ -166,7 +166,7 @@ with tab_chat:
         # Show welcome message if no messages yet
         if not st.session_state["messages"]:
             st.markdown("""
-            ### Welcome to RAG Playground
+            ### Welcome to Agentset Streamlit Demo
             
             Ask questions and get answers based on your ingested documents.
             
