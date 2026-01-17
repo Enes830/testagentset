@@ -94,11 +94,12 @@ def show_ingest_result(result):
 with st.sidebar:
     st.title("RAG Playground")
 
-    with st.expander("⚙️ API Configuration", expanded=not is_configured()):
+    with st.expander("API Configuration", expanded=not is_configured()):
         api_fields = [
             ("OpenAI API Key", "openai_api_key", config.OPENAI_API_KEY, "sk-...", "Required for generating responses", True),
             ("Agentset API Key", "agentset_api_key", config.AGENTSET_API_KEY, "Your Agentset API key", "Required for document retrieval", True),
             ("Namespace ID", "agentset_namespace", config.AGENTSET_NAMESPACE_ID, "ns_...", "Your Agentset namespace identifier", False),
+            ("base URL", "agentset_base_url", "https://api.agentset.ai", "https://api.agentset.com", "Custom Agentset API base URL", False),
         ]
         for label, key, default, placeholder, help_text, is_password in api_fields:
             value = st.text_input(label, type="password" if is_password else "default",
@@ -221,77 +222,71 @@ with tab_chat:
 # Ingest Documents Tab
 with tab_ingest:
     if not is_configured():
-        st.info("Configure your API keys in the sidebar to ingest documents.")
-    else:
-        st.markdown("Add documents to your knowledge base for retrieval.")
+        st.info("Configure your API keys in the sidebar to enable ingestion.")
+    
+    st.markdown("Add documents to your knowledge base for retrieval.")
 
-        ingest_type = st.radio(
-            "Ingestion method",
-            ["Text", "URL", "Upload", "Check Status"],
-            horizontal=True,
-            label_visibility="collapsed",
+    ingest_type = st.radio(
+        "Ingestion method",
+        ["Text", "URL", "Upload", "Check Status"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+
+    if ingest_type == "Text":
+        text_content = st.text_area(
+            "Content", height=150,
+            placeholder="Paste or type the text content you want to ingest...",
         )
+        col1, col2 = st.columns(2)
+        with col1:
+            file_name = st.text_input("File name (optional)", placeholder="document.txt")
+        with col2:
+            text_metadata = metadata_popover("text", max_fields=10)
 
-        st.divider()
+        if st.button("Ingest Text", type="primary", disabled=not text_content or not is_configured()):
+            with st.spinner("Ingesting..."):
+                result = get_ingester().ingest_text(
+                    text_content, file_name or None, text_metadata
+                )
+            show_ingest_result(result)
 
-        if ingest_type == "Text":
-            st.subheader("Ingest Text Content")
-            text_content = st.text_area(
-                "Content", height=150,
-                placeholder="Paste or type the text content you want to ingest...",
-            )
-            col1, col2 = st.columns(2)
-            with col1:
-                file_name = st.text_input("File name (optional)", placeholder="document.txt")
-            with col2:
-                text_metadata = metadata_popover("text", max_fields=10)
+    elif ingest_type == "URL":
+        document_name = st.text_input("Document name", placeholder="Research Paper")
+        file_url = st.text_input("File URL", placeholder="https://example.com/document.pdf")
+        url_metadata = metadata_popover("url")
 
-            if st.button("Ingest Text", type="primary", disabled=not text_content):
-                with st.spinner("Ingesting..."):
-                    result = get_ingester().ingest_text(
-                        text_content, file_name or None, text_metadata
-                    )
-                show_ingest_result(result)
+        if st.button("Ingest from URL", type="primary", disabled=not (document_name and file_url) or not is_configured()):
+            with st.spinner("Ingesting..."):
+                result = get_ingester().ingest_file_from_url(document_name, file_url, url_metadata)
+            show_ingest_result(result)
 
-        elif ingest_type == "URL":
-            st.subheader("Ingest File from URL")
-            document_name = st.text_input("Document name", placeholder="Research Paper")
-            file_url = st.text_input("File URL", placeholder="https://example.com/document.pdf")
-            url_metadata = metadata_popover("url")
+    elif ingest_type == "Upload":
+        uploaded_file = st.file_uploader("Choose a file", help="Supported formats: PDF, TXT, DOCX, and more")
 
-            if st.button("Ingest from URL", type="primary", disabled=not (document_name and file_url)):
-                with st.spinner("Ingesting..."):
-                    result = get_ingester().ingest_file_from_url(document_name, file_url, url_metadata)
-                show_ingest_result(result)
+        if uploaded_file:
+            st.caption(f"Selected: {uploaded_file.name} ({len(uploaded_file.getbuffer()):,} bytes)")
+            custom_name = st.text_input("Custom file name (optional)", placeholder=uploaded_file.name)
+            upload_metadata = metadata_popover("upload")
 
-        elif ingest_type == "Upload":
-            st.subheader("Upload Local File")
-            uploaded_file = st.file_uploader("Choose a file", help="Supported formats: PDF, TXT, DOCX, and more")
+            if st.button("Upload and Ingest", type="primary", disabled=not is_configured()):
+                import tempfile, os
+                with st.spinner("Uploading and ingesting..."):
+                    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                        tmp.write(uploaded_file.getbuffer())
+                        tmp_path = tmp.name
+                    try:
+                        result = get_ingester().ingest_local_file(
+                            tmp_path, custom_name or uploaded_file.name, upload_metadata
+                        )
+                        show_ingest_result(result)
+                    finally:
+                        os.unlink(tmp_path)
 
-            if uploaded_file:
-                st.caption(f"Selected: {uploaded_file.name} ({len(uploaded_file.getbuffer()):,} bytes)")
-                custom_name = st.text_input("Custom file name (optional)", placeholder=uploaded_file.name)
-                upload_metadata = metadata_popover("upload")
+    elif ingest_type == "Check Status":
+        job_id = st.text_input("Job ID", placeholder="Enter the job ID from a previous ingestion")
 
-                if st.button("Upload and Ingest", type="primary"):
-                    import tempfile, os
-                    with st.spinner("Uploading and ingesting..."):
-                        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                            tmp.write(uploaded_file.getbuffer())
-                            tmp_path = tmp.name
-                        try:
-                            result = get_ingester().ingest_local_file(
-                                tmp_path, custom_name or uploaded_file.name, upload_metadata
-                            )
-                            show_ingest_result(result)
-                        finally:
-                            os.unlink(tmp_path)
-
-        elif ingest_type == "Check Status":
-            st.subheader("Check Job Status")
-            job_id = st.text_input("Job ID", placeholder="Enter the job ID from a previous ingestion")
-
-            if st.button("Check Status", type="primary", disabled=not job_id):
-                with st.spinner("Checking..."):
-                    result = get_ingester().get_job_status(job_id)
-                (st.info if result["success"] else st.error)(result["message"])
+        if st.button("Check Status", type="primary", disabled=not job_id or not is_configured()):
+            with st.spinner("Checking..."):
+                result = get_ingester().get_job_status(job_id)
+            (st.info if result["success"] else st.error)(result["message"])
